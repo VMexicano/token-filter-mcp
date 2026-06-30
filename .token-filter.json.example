@@ -1,0 +1,30 @@
+{
+  "$schema": "https://raw.githubusercontent.com/your-org/token-filter-mcp/main/schema.json",
+  "defaults": {
+    "max_output_lines": 100,
+    "max_output_bytes": 204800,
+    "test_show_passes": false,
+    "test_max_stack_frames": 5,
+    "git_log_max": 15,
+    "diff_context_lines": 3,
+    "dedup_threshold": 3,
+    "grep_max_results": 20
+  },
+  "metrics": {
+    "enabled": true,
+    "max_file_size_mb": 5,
+    "max_files": 5
+  },
+  "commands": {
+    "my-custom-script": {
+      "filter_level": "passthrough"
+    },
+    "docker compose logs": {
+      "filter": "truncate",
+      "options": {
+        "maxLines": 50,
+        "keepEnd": true
+      }
+    }
+  }
+}

@@ -1,0 +1,56 @@
+{
+  "name": "token-filter-mcp",
+  "version": "1.0.2",
+  "type": "module",
+  "description": "MCP server that intercepts and compresses tool outputs before they reach the LLM context. Reduces 60-90% token consumption without losing actionable information.",
+  "main": "dist/server.js",
+  "bin": {
+    "token-filter-mcp": "./dist/server.js"
+  },
+  "files": [
+    "dist/**/*.js",
+    "dist/**/*.d.ts",
+    "README.md",
+    ".token-filter.json.example"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "prepublishOnly": "npm run build",
+    "dev": "tsc --watch",
+    "test": "vitest --run"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "token-filter",
+    "llm",
+    "ai",
+    "agent",
+    "tools",
+    "kiro",
+    "claude",
+    "cursor",
+    "context-optimization",
+    "stdio"
+  ],
+  "author": "VMexicano <vmmexicano@gmail.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/VMexicano/token-filter-mcp"
+  },
+  "homepage": "https://github.com/VMexicano/token-filter-mcp#readme",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^26.0.1",
+    "fast-check": "^4.8.0",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.9"
+  }
+}

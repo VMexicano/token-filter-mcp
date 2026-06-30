@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "token-filter-mcp": {
+      "command": "node",
+      "args": ["C:/path/to/Token-Filter-MCP/dist/server.js"],
+      "env": {}
+    }
+  }
+}

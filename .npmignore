@@ -1,0 +1,12 @@
+src/
+tests/
+.kiro/
+*.png
+*.md
+!README.md
+vitest.config.ts
+tsconfig.json
+HYPOTHESIS.md
+PRD.md
+spec.md
+kiro.mcp.json

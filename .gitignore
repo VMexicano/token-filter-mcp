@@ -1,0 +1,8 @@
+node_modules/
+dist/
+*.tgz
+.hypothesis/
+.kiro/
+*.md
+!README.md
+docs/
