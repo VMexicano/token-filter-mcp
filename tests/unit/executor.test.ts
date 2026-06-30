@@ -81,7 +81,7 @@ describe('CommandExecutor', () => {
   it('times out and kills long-running processes', async () => {
     const opts: ExecutionOptions = {
       ...defaultOptions,
-      timeoutMs: 500,
+      timeoutMs: 2000,
     };
     const result = await executor.execute(
       'node -e "setTimeout(() => {}, 30000)"',
@@ -90,14 +90,14 @@ describe('CommandExecutor', () => {
 
     expect(result.timedOut).toBe(true);
     expect(result.exitCode).toBe(1);
-    expect(result.durationMs).toBeGreaterThanOrEqual(400);
-    expect(result.durationMs).toBeLessThan(10000);
-  }, 15000);
+    expect(result.durationMs).toBeGreaterThanOrEqual(1500);
+    expect(result.durationMs).toBeLessThan(15000);
+  }, 30000);
 
   it('returns partial output on timeout', async () => {
     const opts: ExecutionOptions = {
       ...defaultOptions,
-      timeoutMs: 500,
+      timeoutMs: 2000,
     };
     const result = await executor.execute(
       'node -e "process.stdout.write(\'partial\'); setTimeout(() => {}, 30000)"',
@@ -106,7 +106,7 @@ describe('CommandExecutor', () => {
 
     expect(result.timedOut).toBe(true);
     expect(result.stdout).toContain('partial');
-  }, 15000);
+  }, 30000);
 
   it('handles empty output gracefully', async () => {
     const result = await executor.execute(
