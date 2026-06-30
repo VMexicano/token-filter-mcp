@@ -36,6 +36,7 @@ export class CommandExecutor {
         shell: true,
         cwd: options.cwd,
         windowsHide: true,
+        detached: process.platform !== 'win32',
       });
 
       // Stream stdout with hard cap
