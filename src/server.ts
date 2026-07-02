@@ -17,6 +17,9 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
 
 import { ConfigLoader } from './config.js';
 import { CommandExecutor } from './executor.js';
@@ -45,7 +48,15 @@ console.log = (...args: unknown[]) => {
 // =============================================================================
 
 const SERVER_NAME = 'token-filter-mcp';
-const SERVER_VERSION = '1.0.0';
+const SERVER_VERSION = (() => {
+  try {
+    const __dirname = dirname(fileURLToPath(import.meta.url));
+    const pkg = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf-8'));
+    return pkg.version as string;
+  } catch {
+    return '0.0.0';
+  }
+})();
 
 async function main(): Promise<void> {
   // Instantiate shared dependencies
