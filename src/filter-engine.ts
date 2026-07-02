@@ -109,6 +109,7 @@ export class FilterEngine {
       git_log: 'GitLogFilter',
       git_action: 'GitActionFilter',
       linter: 'LinterFilter',
+      build_tool: 'LinterFilter',
       package_install: 'PackageInstallFilter',
       docker: 'FallbackFilter',
       http_client: 'FallbackFilter',

@@ -23,6 +23,7 @@ export type CommandType =
   | 'git_log'
   | 'git_action'
   | 'linter'
+  | 'build_tool'
   | 'package_install'
   | 'docker'
   | 'http_client'

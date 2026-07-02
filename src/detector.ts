@@ -24,12 +24,12 @@ const PATTERNS: PatternEntry[] = [
   { pattern: /^(?:jest|vitest|pytest|mocha)\b/, type: 'test_runner', strategy: 'TestResultFilter', confidence: 1 },
   { pattern: /^cargo\s+test\b/, type: 'test_runner', strategy: 'TestResultFilter', confidence: 1 },
   { pattern: /^go\s+test\b/, type: 'test_runner', strategy: 'TestResultFilter', confidence: 1 },
-  { pattern: /^npm\s+test\b/, type: 'test_runner', strategy: 'TestResultFilter', confidence: 1 },
 
-  // npm run *test* — Requirement 6.6
-  { pattern: /^npm\s+run\s+\S*test\S*/i, type: 'test_runner', strategy: 'TestResultFilter', confidence: 0.85 },
-  { pattern: /^yarn\s+run\s+\S*test\S*/i, type: 'test_runner', strategy: 'TestResultFilter', confidence: 0.85 },
-  { pattern: /^pnpm\s+run\s+\S*test\S*/i, type: 'test_runner', strategy: 'TestResultFilter', confidence: 0.85 },
+  // Direct `test` script across package managers (npm/pnpm/yarn/bun) — Requirement 6.6
+  { pattern: /^(?:npm|pnpm|yarn|bun)\s+test\b/, type: 'test_runner', strategy: 'TestResultFilter', confidence: 1 },
+
+  // `<pm> run *test*` across package managers — Requirement 6.6
+  { pattern: /^(?:npm|pnpm|yarn|bun)\s+run\s+\S*test\S*/i, type: 'test_runner', strategy: 'TestResultFilter', confidence: 0.85 },
 
   // Git — specific subcommands before generic (Requirement 6.3)
   { pattern: /^git\s+status\b/, type: 'git_status', strategy: 'GitStatusCompactFilter', confidence: 1 },
@@ -39,6 +39,17 @@ const PATTERNS: PatternEntry[] = [
 
   // Linters / type-checkers
   { pattern: /^(?:tsc|eslint|biome|ruff|pylint|flake8)\b/, type: 'linter', strategy: 'LinterFilter', confidence: 0.9 },
+
+  // Build tools — script-based via package managers (npm/pnpm/yarn/bun)
+  { pattern: /^(?:npm|pnpm|yarn|bun)\s+run\s+\S*build\S*/i, type: 'build_tool', strategy: 'LinterFilter', confidence: 0.85 },
+  { pattern: /^(?:pnpm|yarn|bun)\s+build\b/i, type: 'build_tool', strategy: 'LinterFilter', confidence: 0.8 },
+
+  // Build tools — native bundlers / compilers / build systems
+  { pattern: /^(?:vite|rollup|esbuild|parcel|turbo|nx)\s+build\b/, type: 'build_tool', strategy: 'LinterFilter', confidence: 0.85 },
+  { pattern: /^webpack\b/, type: 'build_tool', strategy: 'LinterFilter', confidence: 0.85 },
+  { pattern: /^cargo\s+build\b/, type: 'build_tool', strategy: 'LinterFilter', confidence: 0.9 },
+  { pattern: /^go\s+build\b/, type: 'build_tool', strategy: 'LinterFilter', confidence: 0.9 },
+  { pattern: /^(?:make|cmake|gradle|\.\/gradlew|mvn)\b/, type: 'build_tool', strategy: 'LinterFilter', confidence: 0.75 },
 
   // Package install
   { pattern: /^npm\s+(?:install|ci)\b/, type: 'package_install', strategy: 'PackageInstallFilter', confidence: 0.9 },

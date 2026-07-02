@@ -1,6 +1,6 @@
 {
   "name": "token-filter-mcp",
-  "version": "1.0.2",
+  "version": "1.1.0",
   "type": "module",
   "description": "MCP server that intercepts and compresses tool outputs before they reach the LLM context. Reduces 60-90% token consumption without losing actionable information.",
   "main": "dist/server.js",
@@ -17,7 +17,7 @@
     "build": "tsc",
     "prepublishOnly": "npm run build",
     "dev": "tsc --watch",
-    "test": "vitest --run"
+    "test": "node scripts/run-vitest.mjs --run"
   },
   "keywords": [
     "mcp",
