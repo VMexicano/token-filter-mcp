@@ -27,6 +27,7 @@ export type CommandType =
   | 'package_install'
   | 'docker'
   | 'http_client'
+  | 'ui_dump'
   | 'unknown';
 
 // =============================================================================

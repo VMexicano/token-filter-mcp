@@ -56,6 +56,9 @@ const PATTERNS: PatternEntry[] = [
   { pattern: /^pnpm\s+(?:install|add)\b/, type: 'package_install', strategy: 'PackageInstallFilter', confidence: 0.9 },
   { pattern: /^yarn\s+install\b/, type: 'package_install', strategy: 'PackageInstallFilter', confidence: 0.9 },
 
+  // Android UI automation — uiautomator XML dump (accessibility tree via adb)
+  { pattern: /\buiautomator\s+dump\b/, type: 'ui_dump', strategy: 'UiDumpFilter', confidence: 0.95 },
+
   // Docker
   { pattern: /^docker\b/, type: 'docker', strategy: 'FallbackFilter', confidence: 0.8 },
 
