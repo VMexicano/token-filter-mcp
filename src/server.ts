@@ -34,6 +34,7 @@ import { handleFilteredGrep } from './tools/filtered-grep.js';
 import { smartTestSchema, handleSmartTest } from './tools/smart-test.js';
 import { smartGitSchema, handleSmartGit } from './tools/smart-git.js';
 import { smartAdbSchema, handleSmartAdb } from './tools/smart-adb.js';
+import { metricsSummarySchema, handleMetricsSummary } from './tools/metrics-summary.js';
 
 // =============================================================================
 // Redirect all diagnostic output to stderr (Requirement 11.4)
@@ -63,6 +64,7 @@ Use these tools BY DEFAULT instead of raw shell/git/adb commands, in any project
 - Prefer smart_git over raw "git status/diff/log/commit/push/..." — compact by construction.
 - Prefer smart_test over running a test command directly.
 - Prefer smart_adb over "adb shell screencap" + reading a screenshot with vision whenever you are driving an Android emulator or device (debugging an app, exploring a UI, filling a form, navigating screens). Call smart_adb with operation "dump" to see what's on screen as compact text (resource-id, text, clickable, tap-center), and operation "tap" to tap an element by resource_id/text/content_desc directly — this replaces the "screenshot -> vision -> guess coordinates -> tap -> screenshot again" loop with cheap structured text and removes the need to interpret images at all. Only fall back to a screenshot + vision when smart_adb "dump" returns no actionable elements (e.g. a map/canvas/game view with no accessibility tree). For key input, use smart_adb operation "key" with a symbolic KEYCODE_* name only — never send a raw numeric keycode (numeric codes like "6" map to dangerous actions such as KEYCODE_ENDCALL).
+- Use metrics_summary to check actual token savings on demand instead of reading ~/.config/token-filter-mcp/metrics.jsonl by hand.
 `.trim();
 const SERVER_VERSION = (() => {
   try {
@@ -228,11 +230,31 @@ async function main(): Promise<void> {
       'and taps its computed center directly. "tap_xy" taps raw coordinates (last resort, when dump found ' +
       'nothing — e.g. a map/canvas/game view). "key" sends a symbolic KEYCODE_* keyevent (raw numeric ' +
       'keycodes are rejected — a raw "6" is KEYCODE_ENDCALL and silently turns the screen off). "type" ' +
-      'sends text to the currently focused field. Use this proactively any time you are debugging, ' +
-      'exploring, or automating an Android app running in an emulator.',
+      'sends text to the currently focused field. "swipe" swipes from (start_x,start_y) to (end_x,end_y). ' +
+      '"long_press" long-presses a locator (resource_id/text/content_desc) or raw x/y. "install" installs an ' +
+      'APK from a local path. "uninstall" removes an app by package name. "logcat" dumps recent logcat output ' +
+      'pre-filtered to error/warning lines only, for debugging an app without paging through the full log. ' +
+      'Use this proactively any time you are debugging, exploring, or automating an Android app running in an emulator.',
     smartAdbSchema,
     async (params) => {
       const result = await handleSmartAdb(params);
+      return {
+        content: result.content,
+      };
+    },
+  );
+
+  // =========================================================================
+  // Register tool: metrics_summary
+  // =========================================================================
+  server.tool(
+    'metrics_summary',
+    'Summarize the token-filter-mcp metrics log (~/.config/token-filter-mcp/metrics.jsonl): total invocations, ' +
+      'raw vs filtered chars, overall savings percent, and a per-tool breakdown sorted by chars saved. ' +
+      'Use this instead of reading the JSONL file by hand to check how much token-filter-mcp has actually saved.',
+    metricsSummarySchema,
+    async (params) => {
+      const result = await handleMetricsSummary(params);
       return {
         content: result.content,
       };

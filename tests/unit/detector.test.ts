@@ -96,6 +96,29 @@ describe('CommandDetector', () => {
       const result = detector.detect('NODE_ENV=production pnpm run build');
       expect(result.type).toBe('build_tool');
     });
+
+    it('strips `python -m ` prefix', () => {
+      expect(detector.detect('python -m pytest').type).toBe('test_runner');
+      expect(detector.detect('python -m ruff check .').type).toBe('linter');
+      expect(detector.detect('python -m mypy .').type).toBe('linter');
+    });
+
+    it('strips `python3 -m ` prefix', () => {
+      expect(detector.detect('python3 -m pytest').type).toBe('test_runner');
+    });
+
+    it('strips `uv run ` prefix', () => {
+      expect(detector.detect('uv run pytest').type).toBe('test_runner');
+      expect(detector.detect('uv run ruff check .').type).toBe('linter');
+    });
+
+    it('strips `poetry run ` prefix', () => {
+      expect(detector.detect('poetry run pytest').type).toBe('test_runner');
+    });
+
+    it('strips `pipenv run ` prefix', () => {
+      expect(detector.detect('pipenv run mypy .').type).toBe('linter');
+    });
   });
 
   describe('existing detections remain stable', () => {
@@ -117,6 +140,10 @@ describe('CommandDetector', () => {
 
     it('eslint → linter', () => {
       expect(detector.detect('eslint src/').type).toBe('linter');
+    });
+
+    it('mypy → linter', () => {
+      expect(detector.detect('mypy .').type).toBe('linter');
     });
 
     it('npm install → package_install', () => {
