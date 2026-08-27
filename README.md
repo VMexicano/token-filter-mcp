@@ -240,7 +240,7 @@ npm install -g token-filter-mcp
 
 <br>
 
-## 🔧 5 Tools, One Purpose
+## 🔧 7 Tools, One Purpose
 
 <details open>
 <summary><h3>⚡ <code>filtered_shell</code> — Run anything, get only what matters</h3></summary>
@@ -333,6 +333,40 @@ Auto-detects: Jest, Vitest, pytest, cargo test, go test
 
 </details>
 
+<details>
+<summary><h3>📱 <code>smart_adb</code> — Drive Android without screenshots + vision</h3></summary>
+
+```json
+{ "operation": "dump", "device": "emulator-5554" }
+```
+
+| Operation | What it does |
+|:---|:---|
+| `dump` | Compact accessibility tree: resource-id, text, clickable, tap-center |
+| `tap` | Resolve `resource_id`/`text`/`content_desc` to its bounds center and tap it |
+| `tap_xy` | Tap raw coordinates (last resort, e.g. a map/canvas view) |
+| `key` | Symbolic `KEYCODE_*` keyevent only — raw numeric codes are rejected |
+| `type` | Send text to the focused field |
+| `swipe` | Swipe from `(start_x,start_y)` to `(end_x,end_y)` |
+| `long_press` | Long-press a locator (`resource_id`/`text`/`content_desc`) or raw x/y |
+| `install` / `uninstall` | Install an APK from a local path / remove by package name |
+| `logcat` | Recent logcat output pre-filtered to noteworthy lines (error/warning/fatal/assert level, plus known failure patterns) |
+
+Replaces the "screenshot → vision → guess coordinates → tap → screenshot again" loop with cheap structured text.
+
+</details>
+
+<details>
+<summary><h3>📈 <code>metrics_summary</code> — Check your actual savings on demand</h3></summary>
+
+```json
+{ "tool": "smart_git", "limit": 100 }
+```
+
+Aggregates `~/.config/token-filter-mcp/metrics.jsonl` (plus rotated history) into invocation count, raw vs filtered chars, overall savings %, and a per-tool breakdown sorted by chars saved — without reading the JSONL file by hand.
+
+</details>
+
 <br>
 
 ## ⚙️ Configuration (Optional)
@@ -395,6 +429,8 @@ Auto-rotated at 5MB, max 5 history files.
 - Real savings per tool and command type
 - Which filters are most effective
 - Passthrough re-invocations (signal that a filter might be too aggressive)
+
+Query it anytime with the `metrics_summary` tool instead of reading the JSONL by hand.
 
 </details>
 

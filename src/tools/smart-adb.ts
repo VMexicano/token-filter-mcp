@@ -20,6 +20,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { z } from 'zod';
 import type { ToolResponse } from '../types.js';
+import { ERROR_PATTERNS } from '../types.js';
 import { extractUiNodes, isActionableUiNode, centerOfBounds, formatUiNode } from '../strategies/ui-dump-filter.js';
 import { execAdb } from '../adb-exec.js';
 
@@ -50,27 +51,44 @@ const ALLOWED_KEYCODES = new Set([
 
 export const smartAdbSchema = {
   operation: z
-    .enum(['dump', 'tap', 'tap_xy', 'key', 'type'])
+    .enum(['dump', 'tap', 'tap_xy', 'key', 'type', 'swipe', 'long_press', 'install', 'uninstall', 'logcat'])
     .describe(
       'dump: return the filtered accessibility tree. tap: resolve resource_id/text/content_desc to its bounds center and tap it. ' +
-        'tap_xy: tap raw coordinates (last resort). key: send a symbolic KEYCODE_* keyevent. type: send text to the focused field.',
+        'tap_xy: tap raw coordinates (last resort). key: send a symbolic KEYCODE_* keyevent. type: send text to the focused field. ' +
+        'swipe: swipe from (start_x,start_y) to (end_x,end_y). long_press: long-press a locator (resource_id/text/content_desc) or raw x/y. ' +
+        'install: install an APK from a local path. uninstall: remove an app by package name. ' +
+        'logcat: dump recent logcat output filtered to noteworthy lines only — error/warning/fatal/assert level ' +
+          '(E/W/F/A) plus any line matching a known failure pattern (exceptions, tracebacks, "Cannot", etc.).',
     ),
   device: z.string().optional().describe('adb device serial (from "adb devices"); omit if only one device/emulator is attached'),
-  resource_id: z.string().optional().describe('For "tap": exact resource-id to locate (e.g. "back-btn")'),
-  text: z.string().optional().describe('For "tap": exact visible text to locate'),
-  content_desc: z.string().optional().describe('For "tap": exact content-desc (accessibility label) to locate'),
-  x: z.number().int().optional().describe('For "tap_xy": x pixel coordinate'),
-  y: z.number().int().optional().describe('For "tap_xy": y pixel coordinate'),
+  resource_id: z.string().optional().describe('For "tap"/"long_press": exact resource-id to locate (e.g. "back-btn")'),
+  text: z.string().optional().describe('For "tap"/"long_press": exact visible text to locate'),
+  content_desc: z.string().optional().describe('For "tap"/"long_press": exact content-desc (accessibility label) to locate'),
+  x: z.number().int().optional().describe('For "tap_xy"/"long_press": x pixel coordinate'),
+  y: z.number().int().optional().describe('For "tap_xy"/"long_press": y pixel coordinate'),
   keycode: z
     .string()
     .optional()
     .describe(`For "key": one of ${Array.from(ALLOWED_KEYCODES).join(', ')}. Raw numeric keycodes are rejected.`),
   input_text: z.string().optional().describe('For "type": text to send via "input text"'),
+  start_x: z.number().int().optional().describe('For "swipe": starting x pixel coordinate'),
+  start_y: z.number().int().optional().describe('For "swipe": starting y pixel coordinate'),
+  end_x: z.number().int().optional().describe('For "swipe": ending x pixel coordinate'),
+  end_y: z.number().int().optional().describe('For "swipe": ending y pixel coordinate'),
+  duration_ms: z
+    .number()
+    .int()
+    .optional()
+    .describe('For "swipe" (default 300) / "long_press" (default 600): gesture duration in milliseconds'),
+  apk_path: z.string().optional().describe('For "install": local filesystem path to the .apk to install'),
+  package_name: z.string().optional().describe('For "uninstall": package name to remove (e.g. "com.example.app")'),
+  lines: z.number().int().optional().describe('For "logcat": how many recent log lines to scan before filtering (default 500)'),
+  filter_tag: z.string().optional().describe('For "logcat": restrict to a single logcat tag via "-s <tag>"'),
   timeout_ms: z.number().optional().describe('Timeout per adb invocation in milliseconds (default 15000)'),
 };
 
 interface SmartAdbParams {
-  operation: 'dump' | 'tap' | 'tap_xy' | 'key' | 'type';
+  operation: 'dump' | 'tap' | 'tap_xy' | 'key' | 'type' | 'swipe' | 'long_press' | 'install' | 'uninstall' | 'logcat';
   device?: string;
   resource_id?: string;
   text?: string;
@@ -79,6 +97,15 @@ interface SmartAdbParams {
   y?: number;
   keycode?: string;
   input_text?: string;
+  start_x?: number;
+  start_y?: number;
+  end_x?: number;
+  end_y?: number;
+  duration_ms?: number;
+  apk_path?: string;
+  package_name?: string;
+  lines?: number;
+  filter_tag?: string;
   timeout_ms?: number;
 }
 
@@ -215,6 +242,109 @@ export async function handleSmartAdb(params: SmartAdbParams): Promise<ToolRespon
       return textResponse(`Typed: ${input_text}`);
     }
 
+    if (operation === 'swipe') {
+      const { start_x, start_y, end_x, end_y, duration_ms } = params;
+      if (start_x === undefined || start_y === undefined || end_x === undefined || end_y === undefined) {
+        return textResponse('Error: "swipe" requires start_x, start_y, end_x, and end_y.');
+      }
+      const duration = duration_ms ?? 300;
+      const swipeResult = await execAdb(
+        withDevice(device, ['shell', 'input', 'swipe', String(start_x), String(start_y), String(end_x), String(end_y), String(duration)]),
+        timeoutMs,
+      );
+      if (swipeResult.exitCode !== 0) {
+        return textResponse(`Swipe failed: ${swipeResult.stderr || swipeResult.stdout}`);
+      }
+      return textResponse(`Swiped (${start_x},${start_y}) -> (${end_x},${end_y}) over ${duration}ms`);
+    }
+
+    if (operation === 'long_press') {
+      const { resource_id, text, content_desc, x, y, duration_ms } = params;
+      const duration = duration_ms ?? 600;
+      let px: number;
+      let py: number;
+      let label: string;
+
+      if (resource_id || text || content_desc) {
+        const nodes = await fetchUiNodes(device, timeoutMs);
+        const match = findNode(nodes, { resource_id, text, content_desc });
+        if (!match) {
+          const kept = nodes.filter(isActionableUiNode);
+          const available = kept.length > 0 ? kept.map(formatUiNode).join('\n') : '(no actionable elements found)';
+          return textResponse(
+            `No element matched ${describeLocator({ resource_id, text, content_desc })}.\n` +
+              `Currently on screen:\n${available}`,
+          );
+        }
+        const center = centerOfBounds(match.bounds);
+        if (!center) {
+          return textResponse(`Matched an element but it has no usable bounds: ${formatUiNode(match)}`);
+        }
+        px = center.x;
+        py = center.y;
+        label = describeLocator({ resource_id, text, content_desc });
+      } else if (x !== undefined && y !== undefined) {
+        px = x;
+        py = y;
+        label = `(${x},${y})`;
+      } else {
+        return textResponse('Error: "long_press" requires a locator (resource_id/text/content_desc) or x/y.');
+      }
+
+      const pressResult = await execAdb(
+        withDevice(device, ['shell', 'input', 'swipe', String(px), String(py), String(px), String(py), String(duration)]),
+        timeoutMs,
+      );
+      if (pressResult.exitCode !== 0) {
+        return textResponse(`Long press failed: ${pressResult.stderr || pressResult.stdout}`);
+      }
+      return textResponse(`Long-pressed ${label} for ${duration}ms`);
+    }
+
+    if (operation === 'install') {
+      const { apk_path } = params;
+      if (!apk_path) {
+        return textResponse('Error: "install" requires apk_path.');
+      }
+      const installResult = await execAdb(withDevice(device, ['install', '-r', apk_path]), Math.max(timeoutMs, 60000));
+      if (installResult.exitCode !== 0) {
+        return textResponse(`Install failed: ${installResult.stderr || installResult.stdout}`);
+      }
+      return textResponse(`Installed ${apk_path}: ${installResult.stdout.trim() || 'Success'}`);
+    }
+
+    if (operation === 'uninstall') {
+      const { package_name } = params;
+      if (!package_name) {
+        return textResponse('Error: "uninstall" requires package_name.');
+      }
+      const uninstallResult = await execAdb(withDevice(device, ['uninstall', package_name]), timeoutMs);
+      if (uninstallResult.exitCode !== 0) {
+        return textResponse(`Uninstall failed: ${uninstallResult.stderr || uninstallResult.stdout}`);
+      }
+      return textResponse(`Uninstalled ${package_name}: ${uninstallResult.stdout.trim() || 'Success'}`);
+    }
+
+    if (operation === 'logcat') {
+      const { lines, filter_tag } = params;
+      const tailLines = lines ?? 500;
+      const args = ['logcat', '-d', '-t', String(tailLines)];
+      if (filter_tag) args.push('-s', filter_tag);
+
+      const logResult = await execAdb(withDevice(device, args), timeoutMs);
+      if (logResult.exitCode !== 0) {
+        return textResponse(`Logcat failed: ${logResult.stderr || logResult.stdout}`);
+      }
+
+      const rawLines = logResult.stdout.split('\n').filter((l) => l.length > 0);
+      const kept = rawLines.filter(isNoteworthyLogLine);
+      const body =
+        kept.length === 0
+          ? `(no noteworthy lines in the last ${rawLines.length} logcat lines)`
+          : [`${kept.length}/${rawLines.length} noteworthy lines`, ...kept].join('\n');
+      return textResponse(body, { strategy: 'logcat-filter' });
+    }
+
     return textResponse(`Error: unknown operation "${operation as string}"`);
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
@@ -240,6 +370,13 @@ function findNode(
     return nodes.find((n) => (n['content-desc'] ?? '').includes(locator.content_desc as string));
   }
   return undefined;
+}
+
+/** logcat's default "brief" format prefixes each line with a single-letter level, e.g. "W/Tag(1234): msg". */
+function isNoteworthyLogLine(line: string): boolean {
+  // E(rror)/W(arning)/F(atal)/A(ssert) — logcat's "brief" format level prefix.
+  if (/^[EWFA]\//.test(line)) return true;
+  return ERROR_PATTERNS.some((pattern) => pattern.test(line));
 }
 
 function describeLocator(locator: { resource_id?: string; text?: string; content_desc?: string }): string {

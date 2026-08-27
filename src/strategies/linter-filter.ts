@@ -11,6 +11,7 @@ import { GroupStrategy } from './group.js';
  * - eslint: Groups by file (file path headers followed by indented error lines)
  * - biome: Groups by file (lines like `path/file.ts:line:col lint/rule`)
  * - ruff/pylint/flake8: Groups by file (lines like `file.py:line:col: CODE message`)
+ * - mypy: Groups by file (lines like `file.py:line: error: message  [error-code]`)
  * - Fallback: Keeps lines containing error/warning keywords
  *
  * In all cases, lines indicating "all passed" or "0 problems" are omitted.
@@ -34,6 +35,8 @@ export class LinterFilter implements FilterStrategy {
         return this.filterBiome(input);
       case 'ruff-pylint-flake8':
         return this.filterPythonLinter(input);
+      case 'mypy':
+        return this.filterMypy(input);
       default:
         return this.filterGeneric(input);
     }
@@ -60,6 +63,13 @@ export class LinterFilter implements FilterStrategy {
     // biome: lines with "lint/" or "format/" category markers
     if (/\s(lint|format)\/\w+/.test(input) || /biome/i.test(input.split('\n')[0] ?? '')) {
       return 'biome';
+    }
+
+    // mypy: "file.py:line: error|warning|note: message" (checked before the ruff/pylint/flake8
+    // code-based pattern, since mypy uses the literal words "error:"/"warning:"/"note:" instead
+    // of a rule code like E501)
+    if (/\.py:\d+(?::\d+)?:\s*(?:error|warning|note):/.test(input)) {
+      return 'mypy';
     }
 
     // ruff/pylint/flake8: Python file paths with codes like E501, W291, C0301, etc.
@@ -216,12 +226,52 @@ export class LinterFilter implements FilterStrategy {
       return this.noErrorsSummary(input);
     }
 
-    // Group by file
+    // Group by file. The alternation's first branch handles a Windows drive-letter
+    // prefix (e.g. "C:\proj\file.py") so grouping doesn't stop at the drive colon.
     const grouped = this.groupStrategy.apply(errorLines.join('\n'), {
-      groupKey: /^([^:]+\.py)/,
+      groupKey: /^([A-Za-z]:[^:]*\.py|[^:]+\.py)/,
     });
 
     return grouped;
+  }
+
+  // ---------------------------------------------------------------------------
+  // mypy Filter
+  // ---------------------------------------------------------------------------
+
+  private filterMypy(input: string): string {
+    const lines = input.split('\n');
+    const errorLines: string[] = [];
+
+    for (const line of lines) {
+      // Pattern: file.py:line[:col]: error|warning|note: message [error-code]
+      if (/\.py:\d+(?::\d+)?:\s*(?:error|warning|note):/.test(line)) {
+        errorLines.push(line);
+      }
+    }
+
+    if (errorLines.length === 0) {
+      return this.noErrorsSummary(input);
+    }
+
+    // Group by file. The alternation's first branch handles a Windows drive-letter
+    // prefix (e.g. "C:\proj\file.py") so grouping doesn't stop at the drive colon.
+    const grouped = this.groupStrategy.apply(errorLines.join('\n'), {
+      groupKey: /^([A-Za-z]:[^:]*\.py|[^:]+\.py)/,
+    });
+
+    // Summarize by severity actually present — a run with only notes/warnings and no
+    // errors must not be reported as "Found 0 errors" (misleading: implies a clean run).
+    const errorCount = errorLines.filter((l) => /:\s*error:/.test(l)).length;
+    const warningCount = errorLines.filter((l) => /:\s*warning:/.test(l)).length;
+    const noteCount = errorLines.filter((l) => /:\s*note:/.test(l)).length;
+    const parts = [
+      errorCount > 0 ? `${errorCount} error${errorCount !== 1 ? 's' : ''}` : null,
+      warningCount > 0 ? `${warningCount} warning${warningCount !== 1 ? 's' : ''}` : null,
+      noteCount > 0 ? `${noteCount} note${noteCount !== 1 ? 's' : ''}` : null,
+    ].filter((p): p is string => p !== null);
+
+    return `Found ${parts.join(', ')}:\n\n${grouped}`;
   }
 
   // ---------------------------------------------------------------------------
@@ -283,4 +333,4 @@ export class LinterFilter implements FilterStrategy {
 // Internal Types
 // ---------------------------------------------------------------------------
 
-type LinterType = 'tsc' | 'eslint' | 'biome' | 'ruff-pylint-flake8' | 'unknown';
+type LinterType = 'tsc' | 'eslint' | 'biome' | 'ruff-pylint-flake8' | 'mypy' | 'unknown';

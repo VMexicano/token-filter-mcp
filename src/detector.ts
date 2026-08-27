@@ -38,7 +38,7 @@ const PATTERNS: PatternEntry[] = [
   { pattern: /^git\s+(?:add|commit|push|pull|checkout|branch|merge|rebase|stash|fetch)\b/, type: 'git_action', strategy: 'GitActionFilter', confidence: 0.9 },
 
   // Linters / type-checkers
-  { pattern: /^(?:tsc|eslint|biome|ruff|pylint|flake8)\b/, type: 'linter', strategy: 'LinterFilter', confidence: 0.9 },
+  { pattern: /^(?:tsc|eslint|biome|ruff|pylint|flake8|mypy)\b/, type: 'linter', strategy: 'LinterFilter', confidence: 0.9 },
 
   // Build tools — script-based via package managers (npm/pnpm/yarn/bun)
   { pattern: /^(?:npm|pnpm|yarn|bun)\s+run\s+\S*build\S*/i, type: 'build_tool', strategy: 'LinterFilter', confidence: 0.85 },
@@ -98,6 +98,9 @@ export class CommandDetector {
 
     // Strip `./node_modules/.bin/` prefix
     normalized = normalized.replace(/^\.\/node_modules\/\.bin\//, '');
+
+    // Strip Python runner prefixes: `python -m `, `python3 -m `, `uv run `, `poetry run `, `pipenv run `
+    normalized = normalized.replace(/^(?:python3?\s+-m\s+|uv\s+run\s+|poetry\s+run\s+|pipenv\s+run\s+)/, '');
 
     return normalized;
   }
