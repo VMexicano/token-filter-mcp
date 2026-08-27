@@ -226,9 +226,10 @@ export class LinterFilter implements FilterStrategy {
       return this.noErrorsSummary(input);
     }
 
-    // Group by file
+    // Group by file. The alternation's first branch handles a Windows drive-letter
+    // prefix (e.g. "C:\proj\file.py") so grouping doesn't stop at the drive colon.
     const grouped = this.groupStrategy.apply(errorLines.join('\n'), {
-      groupKey: /^([^:]+\.py)/,
+      groupKey: /^([A-Za-z]:[^:]*\.py|[^:]+\.py)/,
     });
 
     return grouped;
@@ -253,15 +254,24 @@ export class LinterFilter implements FilterStrategy {
       return this.noErrorsSummary(input);
     }
 
-    // Group by file
+    // Group by file. The alternation's first branch handles a Windows drive-letter
+    // prefix (e.g. "C:\proj\file.py") so grouping doesn't stop at the drive colon.
     const grouped = this.groupStrategy.apply(errorLines.join('\n'), {
-      groupKey: /^([^:]+\.py)/,
+      groupKey: /^([A-Za-z]:[^:]*\.py|[^:]+\.py)/,
     });
 
-    // Add error count summary (mypy's own "Found N errors" line is preserved via grouping,
-    // but count it independently so filtering that drops the summary line doesn't lose the count)
+    // Summarize by severity actually present — a run with only notes/warnings and no
+    // errors must not be reported as "Found 0 errors" (misleading: implies a clean run).
     const errorCount = errorLines.filter((l) => /:\s*error:/.test(l)).length;
-    return `Found ${errorCount} error${errorCount !== 1 ? 's' : ''}:\n\n${grouped}`;
+    const warningCount = errorLines.filter((l) => /:\s*warning:/.test(l)).length;
+    const noteCount = errorLines.filter((l) => /:\s*note:/.test(l)).length;
+    const parts = [
+      errorCount > 0 ? `${errorCount} error${errorCount !== 1 ? 's' : ''}` : null,
+      warningCount > 0 ? `${warningCount} warning${warningCount !== 1 ? 's' : ''}` : null,
+      noteCount > 0 ? `${noteCount} note${noteCount !== 1 ? 's' : ''}` : null,
+    ].filter((p): p is string => p !== null);
+
+    return `Found ${parts.join(', ')}:\n\n${grouped}`;
   }
 
   // ---------------------------------------------------------------------------

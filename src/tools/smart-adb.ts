@@ -57,7 +57,8 @@ export const smartAdbSchema = {
         'tap_xy: tap raw coordinates (last resort). key: send a symbolic KEYCODE_* keyevent. type: send text to the focused field. ' +
         'swipe: swipe from (start_x,start_y) to (end_x,end_y). long_press: long-press a locator (resource_id/text/content_desc) or raw x/y. ' +
         'install: install an APK from a local path. uninstall: remove an app by package name. ' +
-        'logcat: dump recent logcat output filtered to error/warning lines only (zero-loss: nothing else survives the filter).',
+        'logcat: dump recent logcat output filtered to noteworthy lines only — error/warning/fatal/assert level ' +
+          '(E/W/F/A) plus any line matching a known failure pattern (exceptions, tracebacks, "Cannot", etc.).',
     ),
   device: z.string().optional().describe('adb device serial (from "adb devices"); omit if only one device/emulator is attached'),
   resource_id: z.string().optional().describe('For "tap"/"long_press": exact resource-id to locate (e.g. "back-btn")'),
@@ -339,8 +340,8 @@ export async function handleSmartAdb(params: SmartAdbParams): Promise<ToolRespon
       const kept = rawLines.filter(isNoteworthyLogLine);
       const body =
         kept.length === 0
-          ? `(no error/warning lines in the last ${rawLines.length} logcat lines)`
-          : [`${kept.length}/${rawLines.length} lines (errors/warnings)`, ...kept].join('\n');
+          ? `(no noteworthy lines in the last ${rawLines.length} logcat lines)`
+          : [`${kept.length}/${rawLines.length} noteworthy lines`, ...kept].join('\n');
       return textResponse(body, { strategy: 'logcat-filter' });
     }
 
@@ -373,7 +374,8 @@ function findNode(
 
 /** logcat's default "brief" format prefixes each line with a single-letter level, e.g. "W/Tag(1234): msg". */
 function isNoteworthyLogLine(line: string): boolean {
-  if (/^[EWF]\//.test(line)) return true;
+  // E(rror)/W(arning)/F(atal)/A(ssert) — logcat's "brief" format level prefix.
+  if (/^[EWFA]\//.test(line)) return true;
   return ERROR_PATTERNS.some((pattern) => pattern.test(line));
 }
 

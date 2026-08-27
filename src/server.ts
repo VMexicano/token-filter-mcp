@@ -233,7 +233,8 @@ async function main(): Promise<void> {
       'sends text to the currently focused field. "swipe" swipes from (start_x,start_y) to (end_x,end_y). ' +
       '"long_press" long-presses a locator (resource_id/text/content_desc) or raw x/y. "install" installs an ' +
       'APK from a local path. "uninstall" removes an app by package name. "logcat" dumps recent logcat output ' +
-      'pre-filtered to error/warning lines only, for debugging an app without paging through the full log. ' +
+      'pre-filtered to noteworthy (error/warning/fatal/assert level, plus known failure patterns) lines only, ' +
+      'for debugging an app without paging through the full log. ' +
       'Use this proactively any time you are debugging, exploring, or automating an Android app running in an emulator.',
     smartAdbSchema,
     async (params) => {

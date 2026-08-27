@@ -29,7 +29,15 @@ function metricsDir(baseDir?: string): string {
 
 /** Rotated files sort oldest-first (highest suffix), current metrics.jsonl (most recent) last. */
 function orderedMetricsFiles(dir: string): string[] {
-  const files = readdirSync(dir).filter((f) => /^metrics(\.\d+)?\.jsonl$/.test(f));
+  let allFiles: string[];
+  try {
+    allFiles = readdirSync(dir);
+  } catch {
+    // Directory became unreadable (permissions/race) between the existsSync check and here —
+    // treat it the same as "no metrics" rather than failing the whole summary.
+    return [];
+  }
+  const files = allFiles.filter((f) => /^metrics(\.\d+)?\.jsonl$/.test(f));
   const rotated = files
     .filter((f) => f !== 'metrics.jsonl')
     .sort((a, b) => {

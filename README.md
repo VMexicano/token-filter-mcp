@@ -350,7 +350,7 @@ Auto-detects: Jest, Vitest, pytest, cargo test, go test
 | `swipe` | Swipe from `(start_x,start_y)` to `(end_x,end_y)` |
 | `long_press` | Long-press a locator (`resource_id`/`text`/`content_desc`) or raw x/y |
 | `install` / `uninstall` | Install an APK from a local path / remove by package name |
-| `logcat` | Recent logcat output pre-filtered to error/warning lines only |
+| `logcat` | Recent logcat output pre-filtered to noteworthy lines (error/warning/fatal/assert level, plus known failure patterns) |
 
 Replaces the "screenshot → vision → guess coordinates → tap → screenshot again" loop with cheap structured text.
 

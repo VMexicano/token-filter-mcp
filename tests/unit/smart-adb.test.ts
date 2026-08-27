@@ -243,11 +243,21 @@ describe('smart_adb', () => {
 
       const result = await handleSmartAdb({ operation: 'logcat' });
 
-      expect(result.content[0].text).toContain('2/4 lines');
+      expect(result.content[0].text).toContain('2/4 noteworthy lines');
       expect(result.content[0].text).toContain('W/System');
       expect(result.content[0].text).toContain('E/AndroidRuntime');
       expect(result.content[0].text).not.toContain('OkHttp');
       expect(mockExecAdb).toHaveBeenCalledWith(['logcat', '-d', '-t', '500'], 15000);
+    });
+
+    it('keeps A/ (assert) level lines as noteworthy', async () => {
+      const raw = ['I/App( 1): fine', 'A/libc( 1): assertion "x != null" failed'].join('\n');
+      mockExecAdb.mockResolvedValue({ stdout: raw, stderr: '', exitCode: 0 });
+
+      const result = await handleSmartAdb({ operation: 'logcat' });
+
+      expect(result.content[0].text).toContain('1/2 noteworthy lines');
+      expect(result.content[0].text).toContain('A/libc');
     });
 
     it('adds -s <tag> when filter_tag is given', async () => {
@@ -263,7 +273,7 @@ describe('smart_adb', () => {
 
       const result = await handleSmartAdb({ operation: 'logcat' });
 
-      expect(result.content[0].text).toContain('no error/warning lines');
+      expect(result.content[0].text).toContain('no noteworthy lines');
     });
   });
 });

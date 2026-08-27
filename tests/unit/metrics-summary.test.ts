@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -119,6 +119,28 @@ describe('metrics_summary', () => {
 
     expect(text).toContain('Invocations: 3');
     expect(text).toContain('2024-01-01T00:00:00.000Z -> 2024-01-03T00:00:00.000Z');
+  });
+
+  it('degrades gracefully when the directory exists but becomes unreadable', async () => {
+    vi.resetModules();
+    vi.doMock('node:fs', async () => {
+      const actual = await vi.importActual<typeof import('node:fs')>('node:fs');
+      return {
+        ...actual,
+        existsSync: () => true,
+        readdirSync: () => {
+          throw new Error('EACCES: permission denied');
+        },
+      };
+    });
+
+    const { handleMetricsSummary: handleMetricsSummaryWithBrokenFs } = await import('../../src/tools/metrics-summary.js');
+    const result = await handleMetricsSummaryWithBrokenFs({}, TEST_DIR);
+
+    expect(result.content[0].text).toContain('No metrics recorded yet');
+
+    vi.doUnmock('node:fs');
+    vi.resetModules();
   });
 
   it('skips malformed JSONL lines without failing', async () => {

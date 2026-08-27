@@ -40,6 +40,28 @@ describe('LinterFilter', () => {
       expect(result).toContain('Found 1 error');
       expect(result).toContain('Argument 1 has incompatible type');
     });
+
+    it('does not claim "0 errors" when only notes/warnings are present', () => {
+      const input = [
+        'app/models.py:20: note: Revealed type is "builtins.int"',
+        'app/models.py:25: warning: Unused "type: ignore" comment',
+      ].join('\n');
+
+      const result = apply(input);
+
+      expect(result).not.toContain('Found 0 errors');
+      expect(result).toContain('1 note');
+      expect(result).toContain('1 warning');
+    });
+
+    it('groups by file correctly when the path has a Windows drive letter', () => {
+      const input = 'C:\\proj\\app\\models.py:12: error: Incompatible types  [assignment]';
+
+      const result = apply(input);
+
+      expect(result).toContain('C:\\proj\\app\\models.py');
+      expect(result).toContain('Found 1 error');
+    });
   });
 
   describe('ruff/pylint/flake8 (existing behavior, unaffected by mypy detection)', () => {
@@ -54,6 +76,15 @@ describe('LinterFilter', () => {
       expect(result).toContain('app/utils.py');
       expect(result).toContain('E501');
       expect(result).toContain('F401');
+    });
+
+    it('groups by file correctly when the path has a Windows drive letter', () => {
+      const input = 'C:\\proj\\app\\utils.py:8:1: E501 line too long (92 > 88 characters)';
+
+      const result = apply(input);
+
+      expect(result).toContain('C:\\proj\\app\\utils.py');
+      expect(result).toContain('E501');
     });
   });
 
