@@ -113,6 +113,7 @@ export class FilterEngine {
       package_install: 'PackageInstallFilter',
       docker: 'FallbackFilter',
       http_client: 'FallbackFilter',
+      ui_dump: 'UiDumpFilter',
       unknown: 'FallbackFilter',
     };
     return typeToStrategy[commandType];
